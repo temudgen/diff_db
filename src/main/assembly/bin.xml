@@ -18,4 +18,20 @@
             <outputDirectory></outputDirectory>
         </file>
     </files>
+    <!-- <dependencySets>
+        <dependencySet>
+            <outputDirectory>/</outputDirectory>
+            <unpack>false</unpack>
+            <includes>
+                <include>commons-io</include>
+            </includes>
+        </dependencySet>
+        <dependencySet>
+            <outputDirectory>/lib</outputDirectory>
+            <unpack>false</unpack>
+            <excludes>
+                <exclude>${artifact}</exclude>
+            </excludes>
+        </dependencySet>
+    </dependencySets> -->
 </assembly>

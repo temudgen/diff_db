@@ -5,8 +5,12 @@
  */
 package ru.startnet.utils.pgdiff;
 
+import java.io.File;
 import java.io.PrintWriter;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.SortedMap;
 
 /**
@@ -16,6 +20,9 @@ import java.util.SortedMap;
  */
 public class PgDiffArguments {
 
+    private final String SPLITTER_DELIMETER = ","; 
+  
+  
     /**
      * Input file charset name.
      */
@@ -73,7 +80,17 @@ public class PgDiffArguments {
      * Drop If Exists and Create If Exists where possible
      */
     private boolean useIfExists;
-
+    
+    /**
+     * exclude tables
+     */
+    private List<String> excludeTables;
+    
+    /**
+     * folder path where will be stored functions
+     */
+    private File pathStorageFunctions;
+    
     /**
      * Setter for {@link #addDefaults}.
      *
@@ -267,7 +284,13 @@ public class PgDiffArguments {
                 setVersion(true);
             } else if ("--drop-if-exists".equals(args[i])) {
                PgDiffUtils.setUseExists(true);
-            } else {
+            } else if ("--exclude-tables".equals(args[i])) {
+              setExcludeTables(args[i + 1]);
+              i++;
+            } else if ("--create-storage-functions-only".equals(args[i])) {
+              setPathFunctionStorage(args[i + 1]);
+              i++;
+            }  else {
                 writer.print(Resources.getString("ErrorUnknownOption"));
                 writer.print(": ");
                 writer.println(args[i]);
@@ -416,5 +439,29 @@ public class PgDiffArguments {
      */
     public void setIgnoreSchemaCreation(final boolean ignoreSchemaCreation) {
         this.ignoreSchemaCreation = ignoreSchemaCreation;
+    }
+    
+    public void setExcludeTables(String tables) {
+      if (tables != null && tables.contains(SPLITTER_DELIMETER)) {
+        this.excludeTables = Arrays.asList(tables.split(SPLITTER_DELIMETER));
+      } else {
+        this.excludeTables = Arrays.asList(new String[]{tables});
+      }
+    }
+    
+    public List<String> getExcludeTables() {
+      return this.excludeTables == null ? new ArrayList<String>() : this.excludeTables;
+    }
+    
+    public void setPathFunctionStorage(String path) {
+      this.pathStorageFunctions = new File(path);
+    }
+    
+    public File getPathFunctionsStorage() {
+      return this.pathStorageFunctions;
+    }
+    
+    public boolean doMakeFunctionsStorage() {
+      return this.pathStorageFunctions != null;
     }
 }

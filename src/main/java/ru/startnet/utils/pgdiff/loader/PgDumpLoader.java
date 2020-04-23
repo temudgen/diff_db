@@ -5,6 +5,18 @@
  */
 package ru.startnet.utils.pgdiff.loader;
 
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.text.MessageFormat;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import ru.startnet.utils.pgdiff.Resources;
 import ru.startnet.utils.pgdiff.parsers.AlterRelationParser;
 import ru.startnet.utils.pgdiff.parsers.AlterSequenceParser;
@@ -22,17 +34,6 @@ import ru.startnet.utils.pgdiff.parsers.CreateTypeParser;
 import ru.startnet.utils.pgdiff.parsers.CreateViewParser;
 import ru.startnet.utils.pgdiff.parsers.GrantRevokeParser;
 import ru.startnet.utils.pgdiff.schema.PgDatabase;
-
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
-import java.text.MessageFormat;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Loads PostgreSQL dump into classes.
@@ -206,7 +207,7 @@ public class PgDumpLoader { //NOPMD
      */
     public static PgDatabase loadDatabaseSchema(final InputStream inputStream,
             final String charsetName, final boolean outputIgnoredStatements,
-            final boolean ignoreSlonyTriggers, final boolean ignoreSchemaCreation) {
+            final boolean ignoreSlonyTriggers, final boolean ignoreSchemaCreation, List<String> excludeTables) {
 
         final PgDatabase database = new PgDatabase();
         BufferedReader reader = null;
@@ -223,6 +224,11 @@ public class PgDumpLoader { //NOPMD
         String statement = getWholeStatement(reader);
 
         while (statement != null) {
+            if (excludeTables.size() > 0 && ignoreStatement(statement, excludeTables)) {
+              statement = getWholeStatement(reader);
+              continue;
+            }
+          
             if (PATTERN_CREATE_SCHEMA.matcher(statement).matches()) {
                 CreateSchemaParser.parse(database, statement);
             } else if (PATTERN_CREATE_EXTENSION.matcher(statement).matches()) {
@@ -302,15 +308,15 @@ public class PgDumpLoader { //NOPMD
      */
     public static PgDatabase loadDatabaseSchema(final String file,
             final String charsetName, final boolean outputIgnoredStatements,
-            final boolean ignoreSlonyTriggers, final boolean ignoreSchemaCreation) {
+            final boolean ignoreSlonyTriggers, final boolean ignoreSchemaCreation, List<String> excludeTables) {
         if (file.equals("-"))
             return loadDatabaseSchema(System.in, charsetName,
-                    outputIgnoredStatements, ignoreSlonyTriggers, ignoreSchemaCreation);
+                    outputIgnoredStatements, ignoreSlonyTriggers, ignoreSchemaCreation, excludeTables);
         FileInputStream fis = null;
         try {
             fis = new FileInputStream(file);
             return loadDatabaseSchema(fis, charsetName,
-                    outputIgnoredStatements, ignoreSlonyTriggers, ignoreSchemaCreation);
+                    outputIgnoredStatements, ignoreSlonyTriggers, ignoreSchemaCreation, excludeTables);
         } catch (final FileNotFoundException ex) {
             throw new FileException(MessageFormat.format(
                     Resources.getString("FileNotFound"), file), ex);
@@ -500,5 +506,9 @@ public class PgDumpLoader { //NOPMD
      * Creates a new instance of PgDumpLoader.
      */
     private PgDumpLoader() {
+    }
+    
+    private static boolean ignoreStatement(String statement, List<String> excludeTables) {
+      return excludeTables.stream().anyMatch(table -> statement.contains(table));
     }
 }

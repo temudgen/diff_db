@@ -1,4 +1,4 @@
-<project name="apgdiff" default="jar" basedir=".">
+<project name="diff_pgdb" default="jar" basedir=".">
     <property name="name" value="Another PostgreSQL Diff Tool"/>
     <property name="version" value="2.5"/>
     <property name="build" value="build"/>
@@ -15,7 +15,7 @@
     <property name="test.resources.src" value="src/test/resources"/>
     <property name="source" value="1.5"/>
     <property name="target" value="1.5"/>
-    <property name="main.class" value="cz.startnet.utils.pgdiff.Main"/>
+    <property name="main.class" value="ru.startnet.utils.pgdiff.Main"/>
 
     <path id="build.classpath">
         <fileset dir="${lib}">
@@ -102,7 +102,7 @@
     <target name="javadoc" description="Generates javadoc">
         <delete dir="doc"/>
         <mkdir dir="doc"/>
-        <javadoc packagenames="cz.*" sourcepath="${src}"
+        <javadoc packagenames="ru.*" sourcepath="${src}"
                  destdir="${dist.javadoc}" classpathref="build.classpath"
                  author="true" version="true" private="false" use="true"
                  splitindex="true" windowtitle="${name} ${version}"

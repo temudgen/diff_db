@@ -1,197 +1,139 @@
-# Another PostgreSQL Diff Tool (aka apgdiff)
+# Руководство эксплуатации механизма изменения баз данных - миграция
 
-Another PostgreSQL Diff Tool is free PostgreSQL diff tool that is useful for
-comparison/diffing of database schemas. You can find more information at its
-website at http://www.apgdiff.com/. If you found an issue in apgdiff, please
-file it at https://github.com/fordfrog/apgdiff/issues. If you for some reason
-need to contact author of this application, you can email him at
-fordfrog@fordfrog.com.
+Скрипт миграции - **migrate.sh**, пердставляет собой набор действий 
+позволяющих ускорить и упростить процесс подготовки релиза для выноса на 
+промышленную базу данных.
 
-This repo is mainly unmaintained. But if you found a bug and create a pull request chances are good that it will be merged.
 
-## Changelog
+## Пакет поставки для миграции
+В пакет поставки входят следующие файлы:
+* diff_pgdb
+* migrate.properties
+* migrate.sh
+* README.md
+* .pgpass
 
-### Version 2.6
+## Установка и настройка окружения
 
-#### New Features 
-* PostgresSQL 10 Support
-* Update dependencies to development with Java 11
-* Add security barrier and another options to Views
-* Add support to Create/Drop Rule
-* Triggers: Rerencing,Enable,Disable
-* use using column::type to cast the type of column
+Для работы скрипта миграции, необходимы следующие утилиты:
+ * 1. flyway-common (версия используемая на текущий момент 6.1.4)
+ * 2. psql 
+ * 3. jdk 1.8
+ * 4. pg_dump
+ * 5. git
+ * 6. diff_pgdb
 
-#### Fixes
-* Fix GRANT SEQUENCE, ALTER VIEW OWNER, GRANT(cols) errors
+## Где можно взять утилиты:
+ * 1. flyway commnity edition можно скачать отсюда - 
+[flyway installing](https://flywaydb.org/documentation/commandline)
+документация здесь - [flyway documentation](https://flywaydb.org/documentation/migrations)
+ * 2. psql / pg_dump- PostgreSQL 10 client [postgresql-client installing](http://postgresguide.com/setup/install.html)
+ * 3. jdk 1.8 - [jdk distributive](https://www.oracle.com/java/technologies/javase/javase-jdk8-downloads.html)
+ * 4. git -[git downloads](https://git-scm.com/downloads)
+ * 5. diff_pgdb - исходный код https://github.com/temudgen/diff_pgdb.git
 
-#### Tasks Done
-* Remove SourceForge repository
+##  Установка
 
-### Version 2.5
+ (рассматривается только установка в среде linux дистрибутив Ubuntu)
 
-#### New Features
-* MATERIALIZED VIEW support in PostgreSQL 9.3 (Marti Raudsepp)
-* Better support for inherited tables (Daniel Watson)
-* Added support for CREATE UNLOGGED TABLE (Anatoliy Basov)
-* Added support for /**/ comments (yulei)
-* Support of triggers for views + clause 'INSTEAD OF' (Sergej Bonich)
-* Add support for GRANT and REVOKE on objects: table, view, sequence, column (serge-pouliquen-itf)
-* Add support for ALTER TABLE ... OWNER TO (serge-pouliquen-itf)
-* Add support for CREATE TYPE (Karol Rybak)
-* Add support for CREATE EXTENSION (Átila Camurça Alves)
-* Add basic support for CREATE FOREIGN TABLE (Bruno Almeida)
+ * **flyway** устанавливается из скаченного архива в любое удобное место
+      * создаем символьную ссылку **ln -s <pathFlyway>/flyway /usr/local/bin/flyway**,
+      где **pathFlyway** путь до папки с установленной утилитой 
+ * **psql** / **pg_dump** устанавливаются из клиета для  СУБД PostgreSQL:
+    * **sudo apt-get install postgresql-client** 
+    
+  * **jdk 1.8** устанавливается для соответствующей архитектуры процессора (x86/x64) и добавляем в путь java в  переменную среды PATH
+  * **git** устанавливаем командой
+     *  **sudo apt-get install git**
+     *  после установки  должен быть  доступен по пути /usr/bin/git
+  * **diff_pgdb** идет в комплекте пакета миграции и должен находится в той же папке что и скрипт **migrate.sh**
 
-#### Fixes
-* Added hint to use "CREATE TABLE ... CONSTRAINT name PRIMARY KEY/UNIQUE ..."
-  instead of "CREATE TABLE ... PRIMARY KEY/UNIQUE ..." because apgdiff cannot
-  easily support unnamed constraints.
-* Fixed issue with incorrect end of expression detection because of ignored [
-  and ] brackets. This caused issues for example in statements like
-  "... DEFAULT ARRAY[1, 2, 3], ..." where end of expression was detected at
-  first comma (and not the third one) which then resulted in parser exception.
-* Fixed issue when outputting unsupported command information and the
-  unsupported command string is shorter than 20 characters. (Linas Valiukas)
-* Added Spanish translation. (Sebastian Ortiz)
-* Fitted English help to 80 characters in width. (Dave Jarvis)
-* View query changes are now correctly detected even if it has declared
-  columns that didn't change. (Marti Raudsepp)
-* Fixed issue with the $ sign in the object name (Anatoliy Basov)
-* Added French translation. (Jeremy Passeron)
-* Native for OS line endings in resulting diff (Sergej Bonich)
-* Add support for new Postgres schema dump format
-* Support for Postgres 10 CREATE SEQUENCE data type
+  
+## Настройка
+Для работы с скриптом миграции **migrate.sh** необходимо:
 
-### 2012-09-21: Version 2.4
+* файл **.pgpass** поместить в рабочую папку пользователя - **~/**
+    *  файл **.pgpass** нужен для работы утилит psql/pg_dump (чтобы не запрашивал пароли во время выполнения утилит)
+    *  формат файла **.pgpass** следующий:
+     `<host>:<port>:<dbnme>:<user>:<password>`
+* **migrate.properties** - хранит настройки для скрипта миграции - **migrate.sh**
+    * источник - бд с котрая является эталонной и являетсяб как правилоб slave db, (свойства имеют префикс **src_** 
+          `src_dbname=CIDB`
+          `src_port=5432`
+          `src_username=postgres`
+          `src_host=pgsql-cidb-team-all.dyn.testbanki.ru`
+             _ !! Важно отметить, что здесь не указывается пароль к бд источник, тк. скрипт migrate.sh только читает из источника и никогда не меняет источник_
+     * цель - бд с которой работаем на разработческом окружении:
+          `trg_dbname=CIDB`
+          `trg_dbdefault=postgres`
+          `trg_port=5434`
+          `trg_username=dwh-admin`
+          `trg_host=DCK1-Preprod-DWH.devbanki.ru`
+          `trg_password=gerparol`
+             _Здесь уже указываем пароль бд, т.к. будем менять вплоть до удаления бд_  
+     * указываем полного пути или отностильного  для размещения генерируемые скриптом **migrate.sh** скриптов и и временных файлов 
+          `sqldir=.sql`
+          `tmpdir=.tmp`
+     * свойства для работы с утилитой **diff_pgdb**
+          `diff_pgdb_arg_exclude_tables=--exclude-tables`
+          `diff_pgdb_exclude_tables=flyway_schema_history`
+          `diff_pgdb_create_file_storage_functions=--create-storage-functions-only`
+          `diff_pgdb_default_path_storage=./db`
+          
+     * свойства для работы **flyway**
+          `flyway_default_artifact_name=CR`
+          `flyway_ext=.sql`   
 
-#### New Features
-* Added support for ALTER SEQUENCE OWNED BY (patch by Mikhail Petrov).
-* Added support for CREATE TRIGGER ... UPDATE OF column.
-* Added switch --ignore-slony-triggers which causes that Slony triggers
-  _slony_logtrigger and _slony_denyaccess are completely ignored during parsing
-  and diffing.
-* Added switch --ignore-schema-creation which removes the need of CREATE SCHEMA
-  declararions in the input files.
+* формат вызова утилиты **flyway**:
+	      `flyway -baselineOnMigrate=true -url=jdbc:postgresql://$trg_host:$trg_port/$trg_dbname -user=$trg_username -password=$trg_password -locations=filesystem:"$sqldir" -outputFile="$tmpdir"/flyway.log migrate 2> "$errorlog`   
+         в вызове видно, что используются переменные описанные в файле **migrate.properties**    
+        **Важно! flyway для корректной работы необходима для подключений уже созданная БД**  
+   
+  
+## Как пользоваться скриптом migrate.sh
+####    Краткое описание формата вызова
+       migrate.sh [COMMAND] [OPTION] [ARGUMENTS]
 
-#### Fixes
-* Fixed issue with comments not being added on newly created columns.
-* Improved logging errors when parsing strings.
-* Added support for IF NOT EXISTS (patch by Felipe Sateler).
-* Fixed NPE when search_path contains quoted schema (patch by Steven Elliott).
-* Fixed dropping of default values when --add-defaults is specified (patch by
-  Jim Mlodgenski).
-* Fixed all bugs related to incorrect parsing of end of statement, most often
-  resulting in StringIndexOutOfBoundException.
-* Fixed CREATE TABLE statement output when table contains no column.
+#### Описание параметров вызова
+   * **init** - снять дамп исходной базы данных и сохранить в локальный файл
+   * **init db-use** - вытащить дамп исходной базы данных в локальный файл, затем удалить целевую базу данных, затем применить дамп к целевой базе данных
+   * **migrate** - создайте скрипт изменений на основе дампа снятым команодой **init** и внесенных изменениях в файл $tmpdir/changed.sql
+   * **migrate db-use** - создать сценарий изменения на основе различий исходного и целевого БД
+   * **migrate path_file** - попытаться применить скрипт изменений к целевой бд
+   * **git last-hash** - получить последний короткий хэш из git-репо
+   * **git comment-by-last-hash** - получить последний комментарий по последнему хешу из git repo
+   * **git comment-by-hash c4d2635e67c41j77c23787bdc934e3e03c642d8c** - получить комментарий по хешу из git repo
 
-### 2010-10-22: Version 2.3
-
-#### New Features
-* Added support for diffing of COMMENT ON statements.
-* Added switch --list-charsets to output list of supported charsets.
-
-#### Fixes
-* Added user error messages instead of NullPointerException for cases when
-  referenced database object was not found in the dump.
-* Fixed bug with parsing quoted object name when both first and second part of
-  the name was quoted.
-* Fixed bug in parser that caused in some cases invalid match against expected
-  "word".
-* Fixed bug in parser that caused array data types not detected correctly (was
-  caused by fix of invalid match of "word" above).
-* Functions are now created after tables are create and updated, because of
-  functions depending on tables and columns. Later will be implemented solution
-  for cases where functions have to be created before table columns.
-
-### 2010-10-09: Version 2.2.2
-
-#### Fixes
-* Added missing new line after ALTER VIEW ... ALTER COLUMN ... SET/DROP DEFAULT.
-* Fixed parsing of quoted string values.
-* Fixed detection of function body separator (did not work when there was
-  another 'AS' specified on the same line after the 'AS' starting function
-  body).
-* If two dumps are completely same and there is more than one schema in the
-  dumps, the output now does not contain 'SET search_path = ...'. In other
-  words, if two dumps are completely same, no output is produced.
-* Replaced 'ALTER VIEW name ALTER COLUMN ...' with 'ALTER TABLE view_name ALTER
-  COLUMN ...' to make it compatible with PostgreSQL releases prior to 8.4.
-* Fixed parsing of '' escapes.
-
-#### Other
-* Added support for localization of apgdiff.
-* Added Czech localization.
-
-### 2010-10-03: Version 2.2.1
-
-#### New Features
-* Commands like OWNER TO and ENABLE/DISABLE TRIGGER/RULE are now added to the
-  diff output even for commands that are otherwise being parsed, like ALTER
-  TABLE.
-
-#### Fixes
-* Fixed bug where default values were dropped from VIEW columns even if they
-  were not modified.
-
-### 2010-10-02: Version 2.2
-
-#### New Features
-* Statements that are not supported by apgdiff yet are now all ignored(till this
-  release apgdiff had to be instructed to know what commands to ignore which was
-  not good solution). This is the same behavior as in 1.* releases.
-* Added command line switch <code>--output-ignored-statements</code> which can
-  be used to output statements that apgdiff ignores in the dump files. This
-  feature makes more clear what statements were ignored and developer has to
-  handle them manually eventually.
-
-### 2010-09-30: Version 2.1
-
-#### New Features
-* Added support for ALTER VIEW.
-* Added support for ALTER TABLE view_name/sequence_name.
-
-#### Fixes
-* Fixed issue with comparison of VIEWs when columns are not specified but query
-  has changed.
-* Fixed parsing of quoted names at many places.
-* CREATE RULE is now silently skipped.
-
-### 2010-09-16: Version 2.0.2
-
-#### Fixes
-* CREATE DOMAIN is now silently skipped.
-
-### 2010-09-16: Version 2.0.1
-
-#### Fixes
-* CREATE OPERATOR and ALTER LANGUAGE are now silently skipped.
-
-### 2010-09-13: Version 2.0 Including Beta Releases
-
-#### New Features
-* SQL parser has been completely rewritten to allow safer and more flexible
-  parsing of SQL statements.
-* Statements not supported by apgdiff are now not silenty ignored if apgdiff is
-  not told (by me in code) to ignore them.
-* Added support for ALTER TABLE ... ALTER COLUMN ... SET STORAGE
-  PLAIN|EXTERNAL|EXTENDED|MAIN.
-* Added support for CREATE TABLE ... TABLESPACE.
-* Updated parsing of CREATE TABLE ... WITH/WITHOUT OIDS.
-* Added support for CREATE TRIGGER ... WHEN and for even TRUNCATE.
-* Added support for CREATE SEQUENCE ... OWNED BY.
-* CREATE SCHEMA is now supported for both syntaxes.
-* Added support for default values on function arguments.
-* Added support for parsing ALTER TABLE ... ENABLE/DISABLE TRIGGER/PARSER, but
-  they are not diffed for now.
-
-#### Fixes
-* ALTER SEQUENCE and CREATE AGGREGATE are now silently skipped.
-* Fixed parsing of end of function.
-* Improved handling of dotted quoted names.
-* Fixed quoting of SQL reserved keywords.
-* Fixed parsing of function arguments.
-* Triggers are now dropped before functions are dropped (bug #2991245).
-* Improved diffing of CREATE TABLE ... INHERITS.
-
-### Versions Prior to 2.0
-
-These versions are not covered in changelog.
+#### Дополнительное описание команд вызовов - что происходит под "капотом"
+   * **init** - по реквизитам указанным в файле .pgpass берутся параметры с прекфиксом src_, снимаем дамп при помощи утилиты `pg_dump`, результат сохраняем в файле $tmpdir/changed.sql и $sql/init.sql   
+   Важно! При выполнении команды, все временные папки ($sqldir/$tmpdir) и файлы будут удалены!
+  
+  * **init db-use** - выполняет тоже самое, что и команда **init**, и пытаемся установить снятый дамп, с ихожной бд, на целевую бд, для этого срубаем все подключения в целевой бд - если с таким именем уже есть бд, 
+  то удаляем бд, затем накатываем новый дамп.   
+    Т.о.  данная команда позволит разработчику  перенести с исходной бд (slave db) метаданные на разработческий стенд и длаее уже посредствам DBBeaver сам разработчик вносит требуемые изменения.
+  **При выполнении данной команды, автоматически будет создано файловое хранилище для всех функций с целевой бд**
+  **При выполнении данной команды, проверяйте файл $tmpdir/error.log**   
+   Важно! При выполнении команды, все временные папки ($sqldir/$tmpdir) и файлы будут удалены!   
+   
+   * **migrate** - ожидаем, что были внесены изменения в файл $tmpdir/changed.sql  (который появляется  после выполнения команды **init**), затем  снимаем дамп с исходной бд (slave db), сравниваем дамп исходной бд с файлом  $tmpdir/changed.sql - который был вручную разработчиком изменен, затем, посредствам утилиты **diff_pgdb** (команда выглядит следующим образом:
+   **java -jar diff_pgdb --ignore-start-with --drop-if-exists $dump_init_file $path_changed_sql  $diff_file 2> $errorlog**   
+   в результате работы утилиты, получаем файл и помещаем его в папку $sqldir (см файл **migrate.properties**)   
+   
+   *  **migrate db-use** -  выпоняет ряд действий (после внесения изменений в структуру целевой бд разработчиком):   
+    снять дамп с исходной бд, затем снять дамб целевой-измененной бд и сравнить посредствам утилиты    **diff_pgdb**, т.о. будет сгенерен скрипт изменений-артифакт в папке $sqldir
+  **При выполнении данной команды, автоматически будет создано файловое хранилище для всех функций с целевой бд**
+  **При выполнении данной команды, проверяйте файл $tmpdir/error.log**   
+   
+   *  **migrate path_file** - позволит накатить артифакт на целевую бд посредствам **flyway**. Имя файла формируется следующим образом: из таблицы flyway_schema_history целевой бд берем крайний номер версии и инкрементируем его, т.о. имя файла будет содержать очередную версию скрипта изменения вида Vn__`<hash>`, где n номер очередной версии измененийю, а `<hash>` -  хэш последнего коммита в гите. 
+   **Т.о. данную команду нужно использовать для раскатки на целвую бд автоматом,после валиджации скрипта-артифакта администратором целевой бд.**
+   **flyway** попытаестя накатить изменения в рамках одной транзакции, в случае ошибки, при выполнении скрипта, транзакция откатится и уже внесенные изменения не применятся на целевой бд
+      
+### Сценарий для разработкчика с редактированием бд посредствам DBeaver
+   - **migrate.sh init force** - поднимает дамп с исходной бд на целевой бд
+   - **migrate db-use** - получаем скрипт изменений в папке `$sqldir/CR.sql`
+   - проверям, что скрипт изменений корректен
+   - помещаем скрипт в папку `<локальная ветка гита>/db/flyway/CR.sql` 
+    
+### Сценарий для атоматической раскатки бд посредствам Bamboo
+   -  **migrate ./db/flyway/CR.sql**
+   - после успешного наката изменений, в таблице `select * from flyway_schema_history` должна появиться новая запись с очередной версией изменений и в поле `description` отобразиться хэш последнего коммита  

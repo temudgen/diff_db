@@ -5,15 +5,14 @@
  */
 package ru.startnet.utils.pgdiff.loader;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-
-import ru.startnet.utils.pgdiff.loader.PgDumpLoader;
-
-import java.util.Arrays;
-import java.util.Collection;
 
 /**
  * Tests for PgDiffLoader class.
@@ -72,6 +71,6 @@ public class PgDumpLoaderTest {
     public void loadSchema() {
         PgDumpLoader.loadDatabaseSchema(
                 getClass().getResourceAsStream("schema_" + fileIndex + ".sql"),
-                "UTF-8", false, false, false);
+                "UTF-8", false, false, false, new ArrayList<String>());
     }
 }
